@@ -17,22 +17,22 @@ struct PomodoroTimerApp: App {
                 }
                 .onChange(of: scenePhase) { oldPhase, newPhase in
                     if newPhase == .background {
-                        if pomodoroManager.isRunning && !pomodoroManager.isPaused {
+                        if pomodoroManager.isRunning && !pomodoroManager.isPaused,
+                           let sessionId = pomodoroManager.sessionId {
                             // Schedule notification for when interval ends while in background
                             NotificationService.shared.scheduleIntervalEnd(
                                 seconds: pomodoroManager.remainingSeconds,
                                 intervalType: pomodoroManager.currentIntervalType,
-                                nextType: pomodoroManager.currentIntervalType.next
+                                nextType: pomodoroManager.currentIntervalType.next,
+                                sessionId: sessionId
                             )
                         } else {
                             // Cancel any pending notifications if session is not active
-                            NotificationService.shared.cancelAllNotifications()
+                            NotificationService.shared.cancelNotifications(forSession: pomodoroManager.sessionId)
                         }
-                    } else if newPhase == .active {
-                        // Cancel background notification when returning to foreground
-                        // The in-app timer will handle the transition
-                        NotificationService.shared.cancelAllNotifications()
                     }
+                    // Don't cancel notifications when returning to foreground
+                    // The timer will reschedule them naturally during transitions
                 }
         }
     }

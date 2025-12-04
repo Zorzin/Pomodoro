@@ -7,6 +7,13 @@ struct SetupView: View {
     @State private var restMinutes: Double = 5
     @State private var totalHours: Double = 4
     
+    // Ensure values are valid when view appears
+    private func validateValues() {
+        if studyMinutes < 5 { studyMinutes = 5 }
+        if restMinutes < 1 { restMinutes = 1 }
+        if totalHours < 0.5 { totalHours = 0.5 }
+    }
+    
     var totalSessions: Int {
         let studyInt = Int(studyMinutes)
         guard studyInt > 0 else { return 0 }
@@ -50,7 +57,7 @@ struct SetupView: View {
                             .fontWeight(.semibold)
                             .monospacedDigit()
                     }
-                    Slider(value: $studyMinutes, in: 1...60, step: 5)
+                    Slider(value: $studyMinutes, in: 5...60, step: 5)
                         .tint(.red)
                 }
                 
@@ -121,6 +128,9 @@ struct SetupView: View {
             .padding(.bottom, 40)
         }
         .padding(.top, 60)
+        .onAppear {
+            validateValues()
+        }
     }
     
     private func startSession() {

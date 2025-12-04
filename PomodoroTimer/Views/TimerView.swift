@@ -22,6 +22,9 @@ struct TimerView: View {
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .foregroundColor(.white)
+                        .onChange(of: manager.currentIntervalType) { oldValue, newValue in
+                            print("🎨 VIEW: intervalType changed from \(oldValue.rawValue) to \(newValue.rawValue)")
+                        }
                     
                     Text("Session \(manager.currentInterval) of \(manager.totalIntervals / 2)")
                         .font(.title3)

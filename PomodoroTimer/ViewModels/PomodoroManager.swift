@@ -13,6 +13,9 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var currentInterval: Int = 1
     @Published var totalIntervals: Int = 0
     
+    // Unique identifier for current session to track notifications
+    private(set) var sessionId: UUID?
+    
     private var timer: Timer?
     // Maintain separate players so one sound doesn't cut the other
     private var players: [String: AVAudioPlayer] = [:]
@@ -51,12 +54,23 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
     
     func start() {
+        // Generate new session ID to invalidate any old notifications
+        sessionId = UUID()
+        
         totalIntervals = session.totalIntervals
         currentInterval = 1
         currentIntervalType = .study
         remainingSeconds = session.studyMinutes * 60
         isRunning = true
         isPaused = false
+        
+        print("🚀 START SESSION")
+        print("   Study: \(session.studyMinutes) min")
+        print("   Rest: \(session.restMinutes) min")
+        print("   Total study time: \(session.totalStudyMinutes) min")
+        print("   Total intervals: \(totalIntervals)")
+        print("   Study sessions: \(totalIntervals / 2)")
+        print("   Initial remainingSeconds: \(remainingSeconds)")
         
         startTimer()
         startBackgroundTask()
@@ -78,15 +92,19 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
     
     func stop() {
+        let oldSessionId = sessionId
+        sessionId = nil  // Clear session ID first to invalidate any pending notifications
+        
         timer?.invalidate()
         timer = nil
         isRunning = false
         isPaused = false
         remainingSeconds = 0
         currentInterval = 1
+        currentIntervalType = .study
         endBackgroundTask()
         endLiveActivity()
-        NotificationService.shared.cancelAllNotifications()
+        NotificationService.shared.cancelNotifications(forSession: oldSessionId)
     }
     
     private func startTimer() {
@@ -118,47 +136,65 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
     
     private func transitionToNextInterval() {
-        // Prevent re-entrancy if called from multiple sources (timer, notification, app state changes)
+        // Prevent re-entrancy
         guard !isTransitioning else { return }
         isTransitioning = true
         
-        // Determine next type to play the right sound
-        let nextType = currentIntervalType.next
-        let soundName = (nextType == .rest) ? "doneit" : "bell" 
-        playSound(named: soundName)
+        defer { isTransitioning = false }
         
-        if currentIntervalType == .rest {
+        let totalStudySessions = max(1, totalIntervals / 2)
+        
+        print("🔄 TRANSITION START")
+        print("   From: \(currentIntervalType.rawValue)")
+        print("   Session: \(currentInterval)/\(totalStudySessions)")
+        print("   Study duration setting: \(session.studyMinutes) min")
+        print("   Rest duration setting: \(session.restMinutes) min")
+        
+        if currentIntervalType == .study {
+            // Just finished a study period
+            playSound(named: "doneit")
+            
+            // Check if this was the last study session
+            if currentInterval >= totalStudySessions {
+                print("✅ Completed all \(totalStudySessions) study sessions")
+                completeSession()
+                return
+            }
+            
+            // Move to rest
+            let restDuration = session.restMinutes * 60
+            print("   Calculated rest duration: \(restDuration)s")
+            
+            if restDuration > 0 {
+                // Explicitly notify SwiftUI of changes
+                objectWillChange.send()
+                currentIntervalType = .rest
+                remainingSeconds = restDuration
+                print("☕ NOW: type=\(currentIntervalType.rawValue), remaining=\(remainingSeconds)s")
+            } else {
+                // Skip rest, go directly to next study
+                objectWillChange.send()
+                currentInterval += 1
+                remainingSeconds = session.studyMinutes * 60
+                print("⏭️ Skipped rest, NOW: type=\(currentIntervalType.rawValue), remaining=\(remainingSeconds)s")
+            }
+        } else {
+            // Just finished a rest period
+            playSound(named: "bell")
+            
+            // Move to next study
+            objectWillChange.send()
             currentInterval += 1
+            currentIntervalType = .study
+            remainingSeconds = session.studyMinutes * 60
+            print("📚 NOW: type=\(currentIntervalType.rawValue), remaining=\(remainingSeconds)s, interval=\(currentInterval)")
         }
         
-        if currentInterval > totalIntervals / 2 && currentIntervalType == .rest {
-            isTransitioning = false
-            completeSession()
-            return
-        }
-        
-        currentIntervalType = nextType
-        // Always set full duration for the next interval
-        let duration = currentIntervalType == .study
-            ? session.studyMinutes * 60
-            : session.restMinutes * 60
-        
-        // If duration is 0, skip this interval and move to next
-        if duration <= 0 {
-            isTransitioning = false
-            transitionToNextInterval()
-            return
-        }
-        
-        remainingSeconds = duration
+        print("🔄 TRANSITION END: \(currentIntervalType.rawValue) \(remainingSeconds)s")
         
         updateLiveActivity()
         scheduleIntervalNotification()
-        // Removed immediate 'interval-change' notification to avoid duplicate alerts.
-        
-        isTransitioning = false
-    }
-    
+    }    
     private func completeSession() {
         // Play completion sound (doneit feels appropriate for completion)
         playSound(named: "doneit")
@@ -216,10 +252,12 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
     
     private func scheduleIntervalNotification() {
+        guard let sessionId = sessionId else { return }
         NotificationService.shared.scheduleIntervalEnd(
             seconds: remainingSeconds,
             intervalType: currentIntervalType,
-            nextType: currentIntervalType.next
+            nextType: currentIntervalType.next,
+            sessionId: sessionId
         )
     }
     

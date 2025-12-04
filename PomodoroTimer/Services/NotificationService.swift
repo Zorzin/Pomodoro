@@ -4,6 +4,9 @@ import UIKit
 class NotificationService {
     static let shared = NotificationService()
     
+    // Track the current session ID to validate notifications
+    private var currentSessionId: UUID?
+    
     private init() {}
     
     func requestPermission() {
@@ -19,9 +22,15 @@ class NotificationService {
     func scheduleIntervalEnd(
         seconds: Int,
         intervalType: IntervalType,
-        nextType: IntervalType
+        nextType: IntervalType,
+        sessionId: UUID
     ) {
-        cancelAllNotifications()
+        // Only cancel the previous interval notification for this session, not all notifications
+        let identifier = "interval-end-\(sessionId.uuidString)"
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+        
+        // Store the session ID
+        currentSessionId = sessionId
         
         let content = UNMutableNotificationContent()
         content.title = "\(intervalType.rawValue) Complete!"
@@ -29,6 +38,8 @@ class NotificationService {
         let soundFile = (nextType == .rest) ? "doneit.mp3" : "bell.mp3";
         content.sound = UNNotificationSound(named: UNNotificationSoundName(soundFile))
         content.interruptionLevel = .timeSensitive
+        // Store session ID in userInfo to validate on delivery
+        content.userInfo = ["sessionId": sessionId.uuidString]
         
         let trigger = UNTimeIntervalNotificationTrigger(
             timeInterval: TimeInterval(max(seconds, 1)),
@@ -36,12 +47,18 @@ class NotificationService {
         )
         
         let request = UNNotificationRequest(
-            identifier: "interval-end",
+            identifier: "interval-end-\(sessionId.uuidString)",
             content: content,
             trigger: trigger
         )
         
-        UNUserNotificationCenter.current().add(request)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("🔔 Failed to schedule notification: \(error)")
+            } else {
+                print("🔔 Scheduled notification for \(seconds)s, session: \(sessionId.uuidString.prefix(8))")
+            }
+        }
     }
     
     func sendIntervalChangeNotification(
@@ -81,8 +98,25 @@ class NotificationService {
         UNUserNotificationCenter.current().add(request)
     }
     
-    // Anuluj WSZYSTKIE powiadomienia
+    // Cancel notifications for a specific session
+    func cancelNotifications(forSession sessionId: UUID?) {
+        currentSessionId = nil
+        
+        if let sessionId = sessionId {
+            let identifier = "interval-end-\(sessionId.uuidString)"
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [identifier])
+            print("🔔 Cancelled notifications for session: \(sessionId.uuidString.prefix(8))")
+        }
+        
+        // Also remove any legacy notifications without session ID
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["interval-end"])
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["interval-end", "completion"])
+    }
+    
+    // Cancel ALL notifications (for app termination scenarios)
     func cancelAllNotifications() {
+        currentSessionId = nil
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         print("🔔 All notifications cancelled")
