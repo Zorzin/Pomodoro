@@ -30,6 +30,9 @@ Carthage/
 # Mint
 Mint/
 
+#JetBrains
+.idea/
+
 # Xcode
 *.xcuserstate
 *.xcscmblueprint
