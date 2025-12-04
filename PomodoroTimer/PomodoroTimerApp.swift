@@ -19,6 +19,9 @@ struct PomodoroTimerApp: App {
                     if newPhase == .background {
                         if pomodoroManager.isRunning && !pomodoroManager.isPaused,
                            let sessionId = pomodoroManager.sessionId {
+                            // Start a short background task to finish scheduling
+                            pomodoroManager.startBackgroundTask()
+                            
                             // Schedule notifications for ALL remaining intervals while in background
                             NotificationService.shared.scheduleAllRemainingNotifications(
                                 currentRemainingSeconds: pomodoroManager.remainingSeconds,
@@ -29,21 +32,19 @@ struct PomodoroTimerApp: App {
                                 restDurationSeconds: pomodoroManager.restDurationSeconds,
                                 sessionId: sessionId
                             )
+                            
+                            // End background task after scheduling (we don't need it to keep running)
+                            pomodoroManager.endBackgroundTask()
                         } else {
                             // Cancel any pending notifications if session is not active
                             NotificationService.shared.cancelNotifications(forSession: pomodoroManager.sessionId)
                         }
                     } else if newPhase == .active {
-                        // When returning to foreground, cancel background notifications
+                        // When returning to foreground, cancel background batch notifications
                         // The in-app timer will take over and schedule single notifications as needed
                         if let sessionId = pomodoroManager.sessionId, pomodoroManager.isRunning {
-                            // Cancel the batch of background notifications
-                            var identifiersToRemove: [String] = []
-                            for i in 0..<20 {
-                                identifiersToRemove.append("interval-\(i)-\(sessionId.uuidString)")
-                            }
-                            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
-                            print("🔔 Cancelled background notifications, timer taking over")
+                            NotificationService.shared.cancelBackgroundNotifications(forSession: sessionId)
+                            print("🔔 Returned to foreground, timer taking over")
                         }
                     }
                 }

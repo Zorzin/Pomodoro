@@ -91,7 +91,7 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         print("   Initial remainingSeconds: \(remainingSeconds)")
         
         startTimer()
-        startBackgroundTask()
+        // Note: Background task is now managed by PomodoroTimerApp during scene phase changes
         updateLiveActivity()
         scheduleIntervalNotification()
     }
@@ -120,7 +120,7 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         remainingSeconds = 0
         currentInterval = 1
         currentIntervalType = .study
-        endBackgroundTask()
+        endBackgroundTask()  // Clean up any lingering background task
         endLiveActivity()
         NotificationService.shared.cancelNotifications(forSession: oldSessionId)
     }
@@ -255,16 +255,20 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
     }
     
-    private func startBackgroundTask() {
+    func startBackgroundTask() {
+        // Only start if not already active
+        guard backgroundTask == .invalid else { return }
         backgroundTask = UIApplication.shared.beginBackgroundTask { [weak self] in
             self?.endBackgroundTask()
         }
+        print("🔄 Background task started")
     }
     
-    private func endBackgroundTask() {
+    func endBackgroundTask() {
         if backgroundTask != .invalid {
             UIApplication.shared.endBackgroundTask(backgroundTask)
             backgroundTask = .invalid
+            print("🔄 Background task ended")
         }
     }
     

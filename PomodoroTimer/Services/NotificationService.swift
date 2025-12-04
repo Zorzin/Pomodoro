@@ -98,20 +98,36 @@ class NotificationService {
         UNUserNotificationCenter.current().add(request)
     }
     
-    // Cancel notifications for a specific session
+    // Cancel notifications for a specific session (both single and batch)
     func cancelNotifications(forSession sessionId: UUID?) {
         currentSessionId = nil
         
         if let sessionId = sessionId {
+            // Cancel single foreground notification
             let identifier = "interval-end-\(sessionId.uuidString)"
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
             UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [identifier])
-            print("🔔 Cancelled notifications for session: \(sessionId.uuidString.prefix(8))")
+            
+            // Cancel batch background notifications
+            cancelBackgroundNotifications(forSession: sessionId)
+            
+            print("🔔 Cancelled all notifications for session: \(sessionId.uuidString.prefix(8))")
         }
         
         // Also remove any legacy notifications without session ID
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["interval-end"])
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["interval-end", "completion"])
+    }
+    
+    /// Cancel only the batch background notifications (used when returning to foreground)
+    func cancelBackgroundNotifications(forSession sessionId: UUID) {
+        var identifiersToRemove: [String] = []
+        for i in 0..<20 {
+            identifiersToRemove.append("interval-\(i)-\(sessionId.uuidString)")
+        }
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiersToRemove)
+        print("🔔 Cancelled background batch notifications for session: \(sessionId.uuidString.prefix(8))")
     }
     
     // Cancel ALL notifications (for app termination scenarios)
