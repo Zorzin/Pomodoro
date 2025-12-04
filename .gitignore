@@ -1,0 +1,91 @@
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Thumbnails
+*.swp
+.*.swp
+
+# Node (if any tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Swift/Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.pins
+Package.resolved
+
+# CocoaPods
+Pods/
+Podfile.lock
+# Carthage
+Carthage/
+# Mint
+Mint/
+
+# Xcode
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcshareddata/WorkspaceSettings.xcsettings
+DerivedData/
+build/
+Build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.xcarchive
+
+# SwiftPM/Xcode cache
+SourcePackages/
+.xcodeproj/*
+!.xcodeproj/project.pbxproj
+!.xcodeproj/xcshareddata/
+!.xcodeproj/project.xcworkspace/
+!.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Swift playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# SPM Artifacts
+.artifacts/
+
+# Coverage
+*.gcno
+*.gcda
+*.profraw
+*.profdata
+
+# Audio assets (exclude licensed sounds)
+*.mp3
+*.wav
+*.m4a
+*.aiff
+
+# Other media (optional)
+*.ogg
+*.flac
+
+# Local secrets/config
+*.local
+*.env
+.env.*
+Secrets/
+secret.json

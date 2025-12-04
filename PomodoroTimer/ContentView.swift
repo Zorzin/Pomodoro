@@ -1,24 +1,21 @@
-//
-//  ContentView.swift
-//  PomodoroTimer
-//
-//  Created by Szymon Bakunowicz on 01/12/2025.
-//
-
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var manager: PomodoroManager
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            if manager.isRunning {
+                TimerView()
+            } else {
+                SetupView()
+            }
         }
-        .padding()
+        .animation(.easeInOut, value: manager.isRunning)
     }
 }
 
 #Preview {
     ContentView()
+        .environmentObject(PomodoroManager())
 }
