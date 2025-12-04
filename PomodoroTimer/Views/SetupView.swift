@@ -3,21 +3,43 @@ import SwiftUI
 struct SetupView: View {
     @EnvironmentObject var manager: PomodoroManager
     
-    @State private var studyMinutes: Double = 25
+    // Study time in seconds for fine-grained control during testing
+    @State private var studySeconds: Double = 25 * 60  // 25 minutes default
     @State private var restMinutes: Double = 5
     @State private var totalHours: Double = 4
     
     // Ensure values are valid when view appears
     private func validateValues() {
-        if studyMinutes < 5 { studyMinutes = 5 }
+        if studySeconds < 15 { studySeconds = 15 }
         if restMinutes < 1 { restMinutes = 1 }
         if totalHours < 0.5 { totalHours = 0.5 }
     }
     
+    // Convert study seconds to minutes for calculations
+    private var studyMinutes: Double {
+        studySeconds / 60.0
+    }
+    
     var totalSessions: Int {
-        let studyInt = Int(studyMinutes)
-        guard studyInt > 0 else { return 0 }
-        return Int(totalHours * 60) / studyInt
+        let studyMins = studyMinutes
+        guard studyMins > 0 else { return 0 }
+        return Int(totalHours * 60 / studyMins)
+    }
+    
+    // Format study time display (show seconds if under 1 minute)
+    private var studyTimeFormatted: String {
+        let seconds = Int(studySeconds)
+        if seconds < 60 {
+            return "\(seconds) sec"
+        } else {
+            let minutes = seconds / 60
+            let remainingSeconds = seconds % 60
+            if remainingSeconds == 0 {
+                return "\(minutes) min"
+            } else {
+                return "\(minutes)m \(remainingSeconds)s"
+            }
+        }
     }
     
     private var totalHoursFormatted: String {
@@ -52,12 +74,14 @@ struct SetupView: View {
                         Text("Study Interval")
                             .font(.headline)
                         Spacer()
-                        Text("\(Int(studyMinutes)) min")
+                        Text(studyTimeFormatted)
                             .font(.title3)
                             .fontWeight(.semibold)
                             .monospacedDigit()
                     }
-                    Slider(value: $studyMinutes, in: 5...60, step: 5)
+                    // Allow 15 seconds to 60 minutes (3600 seconds)
+                    // Step: 15 seconds for values under 1 min, then 60 seconds (1 min) steps
+                    Slider(value: $studySeconds, in: 15...3600, step: 15)
                         .tint(.red)
                 }
                 
@@ -104,7 +128,7 @@ struct SetupView: View {
                     .foregroundColor(.secondary)
                 Text("\(totalSessions) study sessions")
                     .font(.title2)
-                Text("(\(totalSessions) × \(Int(studyMinutes))min study + \(Int(restMinutes))min rest)")
+                Text("(\(totalSessions) × \(studyTimeFormatted) study + \(Int(restMinutes))min rest)")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -134,11 +158,15 @@ struct SetupView: View {
     }
     
     private func startSession() {
+        // Convert study seconds to minutes for the session
+        // Use ceiling to ensure at least 1 minute if seconds > 0
+        let studyMins = max(1, Int(ceil(studySeconds / 60.0)))
         manager.session = PomodoroSession(
-            studyMinutes: Int(studyMinutes),
+            studyMinutes: studyMins,
             restMinutes: Int(restMinutes),
             totalStudyMinutes: Int(totalHours * 60)
         )
-        manager.start()
+        // Override with exact seconds for testing short intervals
+        manager.startWithSeconds(studySeconds: Int(studySeconds), restSeconds: Int(restMinutes) * 60)
     }
 }

@@ -23,8 +23,8 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     var progress: Double {
         let total = currentIntervalType == .study
-            ? session.studyMinutes * 60
-            : session.restMinutes * 60
+            ? studyDurationSeconds
+            : restDurationSeconds
         guard total > 0 else { return 0 }
         return Double(total - remainingSeconds) / Double(total)
     }
@@ -53,20 +53,38 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
     }
     
+    // Store actual durations in seconds for precise timing
+    private(set) var studyDurationSeconds: Int = 0
+    private(set) var restDurationSeconds: Int = 0
+    
     func start() {
+        // Use minutes converted to seconds
+        studyDurationSeconds = session.studyMinutes * 60
+        restDurationSeconds = session.restMinutes * 60
+        startInternal()
+    }
+    
+    /// Start with exact seconds - useful for testing short intervals
+    func startWithSeconds(studySeconds: Int, restSeconds: Int) {
+        studyDurationSeconds = studySeconds
+        restDurationSeconds = restSeconds
+        startInternal()
+    }
+    
+    private func startInternal() {
         // Generate new session ID to invalidate any old notifications
         sessionId = UUID()
         
         totalIntervals = session.totalIntervals
         currentInterval = 1
         currentIntervalType = .study
-        remainingSeconds = session.studyMinutes * 60
+        remainingSeconds = studyDurationSeconds
         isRunning = true
         isPaused = false
         
         print("🚀 START SESSION")
-        print("   Study: \(session.studyMinutes) min")
-        print("   Rest: \(session.restMinutes) min")
+        print("   Study: \(studyDurationSeconds)s (\(studyDurationSeconds/60)m \(studyDurationSeconds%60)s)")
+        print("   Rest: \(restDurationSeconds)s (\(restDurationSeconds/60)m \(restDurationSeconds%60)s)")
         print("   Total study time: \(session.totalStudyMinutes) min")
         print("   Total intervals: \(totalIntervals)")
         print("   Study sessions: \(totalIntervals / 2)")
@@ -162,20 +180,19 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
             }
             
             // Move to rest
-            let restDuration = session.restMinutes * 60
-            print("   Calculated rest duration: \(restDuration)s")
+            print("   Calculated rest duration: \(restDurationSeconds)s")
             
-            if restDuration > 0 {
+            if restDurationSeconds > 0 {
                 // Explicitly notify SwiftUI of changes
                 objectWillChange.send()
                 currentIntervalType = .rest
-                remainingSeconds = restDuration
+                remainingSeconds = restDurationSeconds
                 print("☕ NOW: type=\(currentIntervalType.rawValue), remaining=\(remainingSeconds)s")
             } else {
                 // Skip rest, go directly to next study
                 objectWillChange.send()
                 currentInterval += 1
-                remainingSeconds = session.studyMinutes * 60
+                remainingSeconds = studyDurationSeconds
                 print("⏭️ Skipped rest, NOW: type=\(currentIntervalType.rawValue), remaining=\(remainingSeconds)s")
             }
         } else {
@@ -186,7 +203,7 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
             objectWillChange.send()
             currentInterval += 1
             currentIntervalType = .study
-            remainingSeconds = session.studyMinutes * 60
+            remainingSeconds = studyDurationSeconds
             print("📚 NOW: type=\(currentIntervalType.rawValue), remaining=\(remainingSeconds)s, interval=\(currentInterval)")
         }
         

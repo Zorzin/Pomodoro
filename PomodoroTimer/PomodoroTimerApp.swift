@@ -19,20 +19,33 @@ struct PomodoroTimerApp: App {
                     if newPhase == .background {
                         if pomodoroManager.isRunning && !pomodoroManager.isPaused,
                            let sessionId = pomodoroManager.sessionId {
-                            // Schedule notification for when interval ends while in background
-                            NotificationService.shared.scheduleIntervalEnd(
-                                seconds: pomodoroManager.remainingSeconds,
-                                intervalType: pomodoroManager.currentIntervalType,
-                                nextType: pomodoroManager.currentIntervalType.next,
+                            // Schedule notifications for ALL remaining intervals while in background
+                            NotificationService.shared.scheduleAllRemainingNotifications(
+                                currentRemainingSeconds: pomodoroManager.remainingSeconds,
+                                currentIntervalType: pomodoroManager.currentIntervalType,
+                                currentInterval: pomodoroManager.currentInterval,
+                                totalStudySessions: pomodoroManager.totalIntervals / 2,
+                                studyDurationSeconds: pomodoroManager.studyDurationSeconds,
+                                restDurationSeconds: pomodoroManager.restDurationSeconds,
                                 sessionId: sessionId
                             )
                         } else {
                             // Cancel any pending notifications if session is not active
                             NotificationService.shared.cancelNotifications(forSession: pomodoroManager.sessionId)
                         }
+                    } else if newPhase == .active {
+                        // When returning to foreground, cancel background notifications
+                        // The in-app timer will take over and schedule single notifications as needed
+                        if let sessionId = pomodoroManager.sessionId, pomodoroManager.isRunning {
+                            // Cancel the batch of background notifications
+                            var identifiersToRemove: [String] = []
+                            for i in 0..<20 {
+                                identifiersToRemove.append("interval-\(i)-\(sessionId.uuidString)")
+                            }
+                            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
+                            print("🔔 Cancelled background notifications, timer taking over")
+                        }
                     }
-                    // Don't cancel notifications when returning to foreground
-                    // The timer will reschedule them naturally during transitions
                 }
         }
     }
