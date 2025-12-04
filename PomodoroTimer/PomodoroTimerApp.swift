@@ -17,9 +17,21 @@ struct PomodoroTimerApp: App {
                 }
                 .onChange(of: scenePhase) { oldPhase, newPhase in
                     if newPhase == .background {
-                        if !pomodoroManager.isRunning {
+                        if pomodoroManager.isRunning && !pomodoroManager.isPaused {
+                            // Schedule notification for when interval ends while in background
+                            NotificationService.shared.scheduleIntervalEnd(
+                                seconds: pomodoroManager.remainingSeconds,
+                                intervalType: pomodoroManager.currentIntervalType,
+                                nextType: pomodoroManager.currentIntervalType.next
+                            )
+                        } else {
+                            // Cancel any pending notifications if session is not active
                             NotificationService.shared.cancelAllNotifications()
                         }
+                    } else if newPhase == .active {
+                        // Cancel background notification when returning to foreground
+                        // The in-app timer will handle the transition
+                        NotificationService.shared.cancelAllNotifications()
                     }
                 }
         }
@@ -62,6 +74,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
+        // Note: This method is NOT reliably called on iOS when app is swiped away
+        // but we try to cancel here as a best-effort cleanup
         NotificationService.shared.cancelAllNotifications()
     }
 }

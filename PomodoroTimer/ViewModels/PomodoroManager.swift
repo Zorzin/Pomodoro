@@ -139,9 +139,18 @@ class PomodoroManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         
         currentIntervalType = nextType
         // Always set full duration for the next interval
-        remainingSeconds = currentIntervalType == .study
+        let duration = currentIntervalType == .study
             ? session.studyMinutes * 60
             : session.restMinutes * 60
+        
+        // If duration is 0, skip this interval and move to next
+        if duration <= 0 {
+            isTransitioning = false
+            transitionToNextInterval()
+            return
+        }
+        
+        remainingSeconds = duration
         
         updateLiveActivity()
         scheduleIntervalNotification()
